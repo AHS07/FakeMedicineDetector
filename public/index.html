@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fake Medicine Detector</title>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- External Libraries (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <!-- QR Code Library -->
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+
+    <!-- Custom JS -->
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/scanner.js"></script>
+    <script src="js/auth.js"></script>
+
+    <!-- Firebase Config -->
+    <script>
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAVHHHw47Sab9P-ujcJNag3VmZgvVxxkwA",
+            authDomain: "fake-medicine-detector.firebaseapp.com",
+            projectId: "fake-medicine-detector",
+            storageBucket: "fake-medicine-detector.appspot.com",
+            messagingSenderId: "117509741413",
+            appId: "1:117509741413:web:d14ae9c3c8f735d1c5f348"
+        };
+
+        // Initialize Firebase with error handling
+        try {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+                console.log('✅ Firebase initialized successfully');
+            } else {
+                console.log('Firebase already initialized');
+            }
+
+            // Initialize Firebase services
+            const auth = firebase.auth();
+            const db = firebase.firestore();
+            
+            // For localhost testing
+            if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+                console.log('🔧 Running on localhost');
+                // Disable persistence for localhost testing
+                db.settings({
+                    cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
+                });
+            }
+            
+            // Log initialization status
+            console.log({
+                hostname: location.hostname,
+                auth: !!auth,
+                db: !!db,
+                apps: firebase.apps.length
+            });
+
+            // Make Firebase services available globally
+            window.firebaseAuth = auth;
+            window.firebaseDb = db;
+
+            // Initialize UI after Firebase is ready
+            window.addEventListener('load', function() {
+                if (typeof window.initializeUI === 'function') {
+                    window.initializeUI();
+                } else {
+                    console.error('initializeUI function not found');
+                }
+            });
+            
+        } catch (error) {
+            console.error('❌ Error initializing Firebase:', error);
+            alert('Error connecting to authentication service. Please check your internet connection and try again.');
+        }
+    </script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo">Fake Medicine Detector</a>
+            <div class="nav-links">
+                <a href="#" id="scanLink">Scan Medicine</a>
+                <a href="#" id="registerLink">Register Medicine</a>
+                <a href="#" id="generateQRLink">Generate QR Code</a>
+                <a href="#" id="loginBtn">Login</a>
+                <a href="#" id="logoutBtn" style="display: none;">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Authentication Forms -->
+        <div id="authForms" class="auth-container" style="display: none;">
+            <!-- User Type Selection -->
+            <div id="userTypeSelection" class="card">
+                <h2 class="auth-title">Select Account Type</h2>
+                <div class="user-type-buttons">
+                    <button id="userTypeBtn" class="btn btn-primary">User Account</button>
+                    <button id="industryTypeBtn" class="btn btn-secondary">Industry Account</button>
+                </div>
+                <p class="type-description">
+                    <strong>User:</strong> For consumers who want to verify medicines<br>
+                    <strong>Industry:</strong> For pharmaceutical companies to register medicines
+                </p>
+                
+                <!-- For testing purposes only -->
+                <div class="test-only">
+                    <p>For testing only:</p>
+                    <button onclick="createTestUser('user')" class="btn">Create Test User</button>
+                    <button onclick="createTestUser('industry')" class="btn">Create Test Industry</button>
+                    <p class="test-note">These buttons create pre-configured test accounts for demo purposes.</p>
+                </div>
+            </div>
+
+            <!-- Login Form -->
+            <div id="loginForm" class="card" style="display: none;">
+                <h2 class="auth-title">Login <span id="loginTypeText">(User)</span></h2>
+                <form id="loginFormElement" onsubmit="return false;">
+                    <div class="form-group">
+                        <label class="form-label" for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" name="email" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" name="password" class="form-input" required>
+                    </div>
+                    <input type="hidden" id="loginAccountType" name="accountType" value="user">
+                    <button type="submit" class="btn btn-primary">Login</button>
+                    <p>Don't have an account? <a href="#" id="showRegister">Register</a></p>
+                    <p><a href="#" id="backToUserType">Back to account type selection</a></p>
+                </form>
+            </div>
+
+            <!-- User Registration Form -->
+            <div id="registerForm" class="card" style="display: none;">
+                <h2 class="auth-title">Register <span id="registerTypeText">(User)</span></h2>
+                <form id="registerFormElement" onsubmit="return false;">
+                    <div class="form-group">
+                        <label class="form-label" for="regName">Full Name</label>
+                        <input type="text" id="regName" name="name" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regEmail">Email</label>
+                        <input type="email" id="regEmail" name="email" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regPassword">Password</label>
+                        <input type="password" id="regPassword" name="password" class="form-input" required>
+                    </div>
+                    
+                    <!-- Industry-specific fields (hidden by default) -->
+                    <div id="industryFields" style="display: none;">
+                        <div class="form-group">
+                            <label class="form-label" for="companyName">Company Name</label>
+                            <input type="text" id="companyName" name="company" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="licenseNumber">License Number</label>
+                            <input type="text" id="licenseNumber" name="license" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="licenseExpiry">License Expiry Date</label>
+                            <input type="date" id="licenseExpiry" name="expiry" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="licenseAuthority">Issuing Authority</label>
+                            <input type="text" id="licenseAuthority" name="authority" class="form-input">
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" id="regAccountType" name="accountType" value="user">
+                    <button type="submit" class="btn btn-primary">Register</button>
+                    <p>Already have an account? <a href="#" id="showLogin">Login</a></p>
+                    <p><a href="#" id="backToUserTypeReg">Back to account type selection</a></p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Medicine Registration Section -->
+        <div id="medicineRegSection" class="card" style="display: none;">
+            <h2>Register New Medicine</h2>
+            
+            <!-- License Verification (for Industry accounts) -->
+            <div id="licenseVerificationSection" class="license-verify">
+                <h3>Industry License Verification</h3>
+                <p>Your license details were submitted during registration. Please confirm them below:</p>
+                <div class="license-details">
+                    <p><strong>Company:</strong> <span id="companyNameDisplay">-</span></p>
+                    <p><strong>License Number:</strong> <span id="licenseNumberDisplay">-</span></p>
+                    <p><strong>License Expiry:</strong> <span id="licenseExpiryDisplay">-</span></p>
+                    <p><strong>Issuing Authority:</strong> <span id="licenseAuthorityDisplay">-</span></p>
+                </div>
+                <div class="license-status" id="licenseStatusDisplay">
+                    <span class="status-pending">⏳ Verification pending</span>
+                </div>
+                <!-- For testing purposes only -->
+                <div class="test-only">
+                    <button onclick="approveMyLicense()" class="btn btn-secondary">
+                        [TEST] Approve My License
+                    </button>
+                    <p class="test-note">Note: This button is for testing only. In a real system, license verification would be done by admins.</p>
+                </div>
+            </div>
+            
+            <form id="medicineRegForm">
+                <div class="form-group">
+                    <label class="form-label" for="medicineName">Medicine Name</label>
+                    <input type="text" id="medicineName" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="manufacturer">Manufacturer</label>
+                    <input type="text" id="manufacturer" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="batchNumber">Batch Number</label>
+                    <input type="text" id="batchNumber" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="mfgDate">Manufacturing Date</label>
+                    <input type="date" id="mfgDate" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="expDate">Expiry Date</label>
+                    <input type="date" id="expDate" class="form-input" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Register Medicine</button>
+            </form>
+            <div id="registrationResult"></div>
+        </div>
+
+        <!-- Scanner Section -->
+        <div id="scannerSection" class="scanner-container" style="display: none;">
+            <h2>Scan Medicine QR Code</h2>
+            <div id="qr-reader"></div>
+            <div id="scan-result"></div>
+        </div>
+
+        <!-- Welcome Section -->
+        <div id="welcomeSection" class="card">
+            <h1>Welcome to Fake Medicine Detector</h1>
+            <p>Verify the authenticity of your medicines using our advanced blockchain-based system.</p>
+            <div class="btn-group">
+                <button id="startScanBtn" class="btn btn-primary">Start Scanning</button>
+                <button id="learnMoreBtn" class="btn btn-secondary">Learn More</button>
+            </div>
+        </div>
+
+        <!-- Generate QR Code Section -->
+        <section id="generateQR" class="section">
+            <div class="container">
+                <h2>Medicine QR Code Generator</h2>
+                
+                <div class="tabs">
+                    <button class="tab-btn active" id="findTabBtn">Find Existing Medicine</button>
+                    <button class="tab-btn" id="registerTabBtn">Register New Medicine</button>
+                </div>
+                
+                <div id="findTab">
+                    <h3>Find Existing Medicine</h3>
+                    <form id="qrGenerateForm" class="form">
+                        <div class="form-group">
+                            <label for="medicineId">Medicine ID</label>
+                            <input type="text" id="medicineId" placeholder="Enter Medicine ID" required>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Generate QR Code</button>
+                    </form>
+                    
+                    <div class="mt-4">
+                        <h3>- OR -</h3>
+                        <h3>Find Medicine by Details</h3>
+                        <form id="findMedicineForm" class="form">
+                            <div class="form-group">
+                                <label for="findMedicineName">Medicine Name</label>
+                                <input type="text" id="findMedicineName" placeholder="Enter Medicine Name">
+                            </div>
+                            <div class="form-group">
+                                <label for="findManufacturer">Manufacturer</label>
+                                <input type="text" id="findManufacturer" placeholder="Enter Manufacturer">
+                            </div>
+                            <div class="form-group">
+                                <label for="findBatchNumber">Batch Number</label>
+                                <input type="text" id="findBatchNumber" placeholder="Enter Batch Number">
+                            </div>
+                            
+                            <button type="submit" class="btn btn-secondary">Find Medicine</button>
+                        </form>
+                        
+                        <div id="findMedicineResult" class="mt-4"></div>
+                    </div>
+                </div>
+                
+                <div id="registerTab" style="display: none;">
+                    <h3>Register New Medicine & Generate QR</h3>
+                    <form id="quickRegistrationForm" class="form">
+                        <div class="form-group">
+                            <label for="quickMedicineName">Medicine Name</label>
+                            <input type="text" id="quickMedicineName" placeholder="Enter Medicine Name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="quickManufacturer">Manufacturer</label>
+                            <input type="text" id="quickManufacturer" placeholder="Enter Manufacturer" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="quickBatchNumber">Batch Number</label>
+                            <input type="text" id="quickBatchNumber" placeholder="Enter Batch Number" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="quickMfgDate">Manufacturing Date</label>
+                            <input type="date" id="quickMfgDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="quickExpDate">Expiry Date</label>
+                            <input type="date" id="quickExpDate" required>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Register & Generate QR</button>
+                    </form>
+                </div>
+                
+                <div id="qrGenerateResult" class="mt-4"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="navbar">
+        <div class="nav-container">
+            <p>&copy; 2024 Fake Medicine Detector. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html> 

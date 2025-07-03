@@ -1,0 +1,6 @@
+Loss: 0.5079
+Accuracy: 0.7356
+AUC: 0.7771
+Precision: 0.6916
+Recall: 0.8506
+F1 Score: 0.7629

@@ -1,0 +1,38 @@
+{
+  "name": "medicine-registry-blockchain",
+  "version": "1.0.0",
+  "description": "Blockchain component for Fake Medicine Detection System",
+  "main": "truffle-config.js",
+  "scripts": {
+    "test": "truffle test",
+    "compile": "truffle compile",
+    "migrate": "truffle migrate",
+    "migrate:reset": "truffle migrate --reset",
+    "migrate:sepolia": "truffle migrate --network sepolia",
+    "test:coverage": "truffle run coverage",
+    "clean": "rm -rf build/",
+    "dev": "truffle develop",
+    "lint": "solhint 'contracts/**/*.sol'"
+  },
+  "keywords": [
+    "blockchain",
+    "ethereum",
+    "solidity",
+    "medicine",
+    "verification"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.3",
+    "@truffle/hdwallet-provider": "^2.1.15",
+    "truffle": "^5.11.5"
+  },
+  "devDependencies": {
+    "@openzeppelin/test-helpers": "^0.5.16",
+    "dotenv": "^16.3.1",
+    "solhint": "^3.6.2",
+    "solidity-coverage": "^0.8.5",
+    "truffle-plugin-verify": "^0.6.5"
+  }
+} 

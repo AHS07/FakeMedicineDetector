@@ -1,0 +1,211 @@
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="testConnection()">
+                    <i class="fas fa-link"></i> Test Connection
+                </button>
+                <button class="btn btn-secondary" onclick="verifyContract()">
+                    <i class="fas fa-shield-alt"></i> Verify Contract
+                </button>
+            </div>
+            
+            <!-- Add manufacturer registration and verification buttons -->
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="registerManufacturer()">
+                    <i class="fas fa-building"></i> Register as Manufacturer
+                </button>
+                <button class="btn btn-secondary" onclick="verifyManufacturer()">
+                    <i class="fas fa-check-double"></i> Verify Manufacturer
+                </button>
+            </div>
+            
+            <div id="result" class="result-area"></div> 
+
+    <script>
+        // Basic blockchain status functions
+        async function testConnection() {
+            const resultArea = document.getElementById('result');
+            resultArea.innerHTML = '<p class="loading">Testing connection...</p>';
+            
+            try {
+                const response = await fetch('/api/blockchain/status');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultArea.innerHTML = `<p class="success-text">Connection successful! <i class="fas fa-check-circle"></i> Network ID: ${data.network_id}</p>`;
+                } else {
+                    resultArea.innerHTML = `<p class="error-text">Connection failed: ${data.error} <i class="fas fa-times-circle"></i></p>`;
+                }
+            } catch (error) {
+                resultArea.innerHTML = `<p class="error-text">Error: ${error.message} <i class="fas fa-exclamation-triangle"></i></p>`;
+            }
+        }
+        
+        async function verifyContract() {
+            const resultArea = document.getElementById('result');
+            resultArea.innerHTML = '<p class="loading">Verifying contract...</p>';
+            
+            try {
+                const response = await fetch('/api/blockchain/verify-contract');
+                const data = await response.json();
+                
+                if (data.success) {
+                    let html = `
+                        <p class="success-text">Contract verified! <i class="fas fa-check-circle"></i></p>
+                        <p><strong>Contract Address:</strong> ${data.contract_address}</p>
+                        <p><strong>Owner:</strong> ${data.owner}</p>
+                    `;
+                    
+                    // Add medicine count if available
+                    if (data.medicine_count) {
+                        html += `<p><strong>Registered Medicines:</strong> ${data.medicine_count}</p>`;
+                    }
+                    
+                    // Add manufacturer count if available
+                    if (data.manufacturer_count) {
+                        html += `<p><strong>Registered Manufacturers:</strong> ${data.manufacturer_count}</p>`;
+                    }
+                    
+                    resultArea.innerHTML = html;
+                } else {
+                    let errorMessage = data.error || 'Unknown error';
+                    resultArea.innerHTML = `
+                        <p class="error-text">Verification failed: ${errorMessage} <i class="fas fa-times-circle"></i></p>
+                        <div class="troubleshooting">
+                            <h3><i class="fas fa-tools"></i> Troubleshooting Tips:</h3>
+                            <ul>
+                                <li>Make sure your blockchain node (Ganache) is running</li>
+                                <li>Check that the contract address is correct</li>
+                                <li>Verify the contract is deployed on the connected network</li>
+                                <li>Ensure your MetaMask is connected to the correct network</li>
+                            </ul>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultArea.innerHTML = `
+                    <p class="error-text">Verification failed: ${error.message} <i class="fas fa-exclamation-triangle"></i></p>
+                    <p>There was a problem connecting to the server.</p>
+                `;
+            }
+        }
+        
+        // Manufacturer registration and verification functions
+        async function registerManufacturer() {
+            const resultArea = document.getElementById('result');
+            resultArea.innerHTML = '<p class="loading">Registering manufacturer...</p>';
+            
+            // Check if MetaMask is connected
+            if (!window.ethereum || !(await isMetaMaskConnected())) {
+                resultArea.innerHTML = `
+                    <p class="error-text">MetaMask not connected <i class="fas fa-times-circle"></i></p>
+                    <p>Please connect your MetaMask wallet first.</p>
+                `;
+                return;
+            }
+            
+            try {
+                const accounts = await ethereum.request({ method: 'eth_accounts' });
+                
+                const response = await fetch('/api/blockchain/register-manufacturer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        wallet_address: accounts[0]
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultArea.innerHTML = `
+                        <p class="success-text">Manufacturer registration request submitted! <i class="fas fa-check-circle"></i></p>
+                        <p><strong>Transaction Hash:</strong> ${data.tx_hash}</p>
+                        <p>Please wait for the transaction to be mined. You can check the status by clicking "Verify Manufacturer".</p>
+                    `;
+                } else {
+                    resultArea.innerHTML = `
+                        <p class="error-text">Registration failed: ${data.error} <i class="fas fa-times-circle"></i></p>
+                    `;
+                }
+            } catch (error) {
+                resultArea.innerHTML = `
+                    <p class="error-text">Error: ${error.message} <i class="fas fa-exclamation-triangle"></i></p>
+                    <p>There was a problem connecting to the server or blockchain.</p>
+                `;
+            }
+        }
+        
+        async function verifyManufacturer() {
+            const resultArea = document.getElementById('result');
+            resultArea.innerHTML = '<p class="loading">Verifying manufacturer status...</p>';
+            
+            // Check if MetaMask is connected
+            if (!window.ethereum || !(await isMetaMaskConnected())) {
+                resultArea.innerHTML = `
+                    <p class="error-text">MetaMask not connected <i class="fas fa-times-circle"></i></p>
+                    <p>Please connect your MetaMask wallet first.</p>
+                `;
+                return;
+            }
+            
+            try {
+                const accounts = await ethereum.request({ method: 'eth_accounts' });
+                
+                const response = await fetch('/api/blockchain/verify-manufacturer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        wallet_address: accounts[0]
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultArea.innerHTML = `
+                        <p class="success-text">Manufacturer verified! <i class="fas fa-check-circle"></i></p>
+                        <p><strong>Name:</strong> ${data.manufacturer.name}</p>
+                        <p><strong>License:</strong> ${data.manufacturer.license}</p>
+                        <p><strong>Status:</strong> ${data.manufacturer.isVerified ? 'Verified' : 'Pending Verification'}</p>
+                    `;
+                } else {
+                    resultArea.innerHTML = `
+                        <p class="error-text">Verification failed: ${data.error} <i class="fas fa-times-circle"></i></p>
+                        <p>If you haven't registered as a manufacturer yet, please click "Register as Manufacturer" first.</p>
+                    `;
+                }
+            } catch (error) {
+                resultArea.innerHTML = `
+                    <p class="error-text">Error: ${error.message} <i class="fas fa-exclamation-triangle"></i></p>
+                    <p>There was a problem connecting to the server or blockchain.</p>
+                `;
+            }
+        }
+        
+        // Helper function to check if MetaMask is connected
+        async function isMetaMaskConnected() {
+            if (!window.ethereum) return false;
+            
+            try {
+                const accounts = await ethereum.request({ method: 'eth_accounts' });
+                return accounts.length > 0;
+            } catch (error) {
+                console.error("Error checking MetaMask connection:", error);
+                return false;
+            }
+        }
+        
+        // Update MetaMask status when connection changes
+        document.addEventListener('DOMContentLoaded', () => {
+            updateMetaMaskStatus();
+            
+            // Check for MetaMask connection events
+            if (window.ethereum) {
+                window.ethereum.on('accountsChanged', updateMetaMaskStatus);
+                window.ethereum.on('chainChanged', updateMetaMaskStatus);
+            }
+        });
+    </script> 

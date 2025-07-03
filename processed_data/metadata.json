@@ -1,0 +1,16 @@
+{
+    "machine_packed": {
+        "count": 0,
+        "images": {}
+    },
+    "hand_packed": {
+        "count": 437,
+        "images": {
+            "hand_packed_20250603_194943.jpg": {
+                "original_path": "temp_kaggle_data\\hand_packed\\images5127.jpg",
+                "processed_date": "20250603_194943",
+                "image_size": "224x224"
+            }
+        }
+    }
+}
